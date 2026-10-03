@@ -45,7 +45,39 @@ WHEEL_OFFSET = 0.0275       # O: distance between kingpin axis and wheel centre.
 
 
 def ackermann_wheel_angles(delta):
-    '''
+    '''def ackermann_wheel_angles(delta):
+    """
+    Purpose:
+    --------
+    Convert a single virtual steering angle into the two real front-wheel
+    angles, per the Ackermann geometry.
+    """
+
+    if delta == 0:
+        return 0.0, 0.0
+
+    # Effective half-track width
+    half_track = (TRACK_WIDTH / 2) + WHEEL_OFFSET
+
+    # Turning radius of the virtual front wheel
+    radius = WHEELBASE / math.tan(delta)
+
+    # Calculate left and right wheel angles
+    left_radius = radius - half_track
+    right_radius = radius + half_track
+
+    left_angle = math.atan(WHEELBASE / left_radius)
+    right_angle = math.atan(WHEELBASE / right_radius)
+
+    # Preserve the steering direction
+    if delta < 0:
+        left_angle = -abs(left_angle)
+        right_angle = -abs(right_angle)
+    else:
+        left_angle = abs(left_angle)
+        right_angle = abs(right_angle)
+
+    return left_angle, right_angle
     Purpose:
     ---
     Convert a single virtual steering angle into the two real front-wheel
