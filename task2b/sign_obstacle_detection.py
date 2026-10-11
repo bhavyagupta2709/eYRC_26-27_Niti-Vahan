@@ -39,98 +39,112 @@ SIGN_LABELS = ("School", "Speed40", "Parking", "Hospital")
 ############### ADD YOUR IMPLEMENTATION HERE #################
 ##############################################################
 
+
+RED_RANGES = [
+    (np.array([0, 65, 45]), np.array([12, 255, 255])),
+    (np.array([168, 65, 45]), np.array([180, 255, 255]))
+]
+
+BLUE_LOW = np.array([90, 55, 40])
+BLUE_HIGH = np.array([140, 255, 255])
+
+
+def make_mask(image, ranges):
+    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+    mask = np.zeros(hsv.shape[:2], dtype=np.uint8)
+
+    for low, high in ranges:
+        mask = cv2.bitwise_or(
+            mask, cv2.inRange(hsv, low, high)
+        )
+
+    kernel = np.ones((3, 3), np.uint8)
+    return cv2.morphologyEx(
+        mask, cv2.MORPH_CLOSE, kernel
+    )
+
+
+def get_red_sign_label(contour):
+    perimeter = cv2.arcLength(contour, True)
+
+    if perimeter <= 0:
+        return None
+
+    polygon = cv2.approxPolyDP(
+        contour, 0.035 * perimeter, True
+    )
+
+    if len(polygon) == 3:
+        return "School"
+
+    area = cv2.contourArea(contour)
+    circularity = 4 * np.pi * area / perimeter**2
+
+    if len(polygon) >= 6 and circularity > 0.70:
+        return "Speed40"
+
+    return None
+
+
 def detect_signs(image):
-    '''
-    Purpose:
-    ---
-    Detect every road sign visible in a single image, and report what each
-    one is and how large it appears. An image can hold zero, one, or more
-    than one sign at once.
-
-    Input Arguments:
-    ---
-    `image` :   [ numpy.ndarray ]
-        A single BGR image, of shape (height, width, 3).
-
-    Returns:
-    ---
-    `detections` :  [ list of dict ]
-        Zero, one, or many entries - one per sign found in the image:
-        [
-            {
-                "label" : str,   one of SIGN_LABELS
-                "area"  : int,   that sign's area in pixels
-            },
-            ...
-        ]
-
-    Example call:
-    ---
-    detections = detect_signs(image)
-
-    NOTE:
-    ---
-    This function must ONLY compute and return the result. Do not call
-    cv2.imshow(), cv2.waitKey(), cv2.imwrite() or print() from inside it -
-    reading images and reporting results is the evaluator's job, not this
-    function's.
-    '''
-
     detections = []
 
-    #################### ADD YOUR CODE HERE ####################
-    # 1. Isolate each sign's colour in `image`
-    # 2. Separate the individual sign-shaped regions
-    # 3. Work out which SIGN_LABELS entry each region is        -> label
-    # 4. Measure each region's area in pixels                   -> area
-    ############################################################
+    if image is None or image.size == 0:
+        return detections
+
+    # Red signs
+    red_mask = make_mask(image, RED_RANGES)
+    contours, _ = cv2.findContours(
+        red_mask, cv2.RETR_EXTERNAL,
+        cv2.CHAIN_APPROX_SIMPLE
+    )
+
+    for contour in contours:
+        area = cv2.contourArea(contour)
+
+        if area < 250:
+            continue
+
+        label = get_red_sign_label(contour)
+
+        if label is not None:
+            detections.append({
+                "label": label,
+                "area": int(round(area))
+            })
+
+    # Blue signs: candidates only.
+    # Proper Parking/Hospital classification still needs
+    # to be implemented using the reference images.
+    blue_mask = make_mask(
+        image, [(BLUE_LOW, BLUE_HIGH)]
+    )
+    contours, _ = cv2.findContours(
+        blue_mask, cv2.RETR_EXTERNAL,
+        cv2.CHAIN_APPROX_SIMPLE
+    )
+
+    for contour in contours:
+        area = cv2.contourArea(contour)
+
+        if area < 250:
+            continue
+
+        x, y, w, h = cv2.boundingRect(contour)
+
+        if h > 0 and 0.70 <= w / h <= 1.30:
+            # Do not guess between Parking and Hospital.
+            # Add reference-template matching here.
+
+            pass
 
     return detections
 
 
 def detect_obstacle(image):
-    '''
-    Purpose:
-    ---
-    Detect whether the obstacle is visible in a single image, and how large
-    it appears.
+    # TODO: implement using the actual obstacle examples.
+    return {"present": False, "area": 0}
 
-    Input Arguments:
-    ---
-    `image` :   [ numpy.ndarray ]
-        A single BGR image, of shape (height, width, 3).
-
-    Returns:
-    ---
-    `result` :  [ dict ]
-        {
-            "present" : bool,   True if the obstacle is visible
-            "area"    : int,    its area in pixels, 0 if not present
-        }
-
-    Example call:
-    ---
-    result = detect_obstacle(image)
-
-    NOTE:
-    ---
-    This function must ONLY compute and return the result. Do not call
-    cv2.imshow(), cv2.waitKey(), cv2.imwrite() or print() from inside it -
-    reading images and reporting results is the evaluator's job, not this
-    function's.
-    '''
-
-    present = False
-    area = 0
-
-    #################### ADD YOUR CODE HERE ####################
-    # 1. Isolate the obstacle's colour in `image`
-    # 2. Tell it apart from a same-coloured sign
-    # 3. Report whether it is present               -> present
-    # 4. Measure its area in pixels, if present      -> area
-    ############################################################
-
-    return {"present": present, "area": area}
 
 
 # ------------------------------------------------------------------
